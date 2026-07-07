@@ -81,13 +81,8 @@ create policy listing_ai_analysis_write_owner on listing_ai_analysis
   with check (exists (select 1 from products p where p.id = product_id and p.seller_id = auth.uid()));
 
 -- ---------------------------------------------------------------------
--- favorites / saved_products: owner only
+-- saved_products: owner only
 -- ---------------------------------------------------------------------
-alter table favorites enable row level security;
-drop policy if exists favorites_owner on favorites;
-create policy favorites_owner on favorites
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
 alter table saved_products enable row level security;
 drop policy if exists saved_products_owner on saved_products;
 create policy saved_products_owner on saved_products
