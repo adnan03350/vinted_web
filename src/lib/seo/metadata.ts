@@ -2,10 +2,16 @@ import type { Metadata } from "next";
 import { getAppUrl } from "@/lib/env";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/constants/marketplace";
 
-const appUrl = getAppUrl();
+function getMetadataBase() {
+  try {
+    return new URL(getAppUrl());
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
 
 export const defaultMetadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: getMetadataBase(),
   title: {
     default: `${SITE_NAME} | AI-native marketplace`,
     template: `%s | ${SITE_NAME}`,
@@ -26,7 +32,7 @@ export const defaultMetadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: appUrl,
+    url: getAppUrl(),
     siteName: SITE_NAME,
     title: `${SITE_NAME} | AI-native marketplace`,
     description: SITE_DESCRIPTION,
@@ -42,7 +48,7 @@ export const defaultMetadata: Metadata = {
     googleBot: { index: true, follow: true },
   },
   alternates: {
-    canonical: appUrl,
+    canonical: getAppUrl(),
   },
 };
 
@@ -54,7 +60,7 @@ export function buildProductMetadata(input: {
   currency: string;
   image?: string | null;
 }): Metadata {
-  const url = `${appUrl}/products/${input.id}`;
+  const url = `${getAppUrl()}/products/${input.id}`;
   const description = input.description.slice(0, 160);
 
   return {
@@ -78,7 +84,7 @@ export function buildProductMetadata(input: {
 }
 
 export function buildPageMetadata(title: string, description: string, path: string): Metadata {
-  const url = `${appUrl}${path}`;
+  const url = `${getAppUrl()}${path}`;
   return {
     title,
     description,

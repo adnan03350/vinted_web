@@ -14,6 +14,7 @@ import {
 import { createNotification } from "@/lib/services/notification-service";
 import { getOrCreateConversation } from "@/lib/services/chat-service";
 import { createServerSupabaseClient, createServiceRoleClient, getServerUser } from "@/lib/supabase/server";
+import { getAppUrl } from "@/lib/env";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuid } from "uuid";
@@ -53,7 +54,12 @@ async function ensureUserProfile(
     country,
     role: "buyer",
   });
-  if (error) throw actionError(error, "Unable to set up your profile");
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("This email is already registered. Try logging in.");
+    }
+    throw actionError(error, "Unable to set up your profile");
+  }
 }
 
 export async function signUpWithEmail(formData: FormData) {
@@ -67,7 +73,7 @@ export async function signUpWithEmail(formData: FormData) {
 
   const supabase = await createServerSupabaseClient();
   const { email, password, full_name, country } = parsed.data;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getAppUrl();
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -85,14 +91,7 @@ export async function signUpWithEmail(formData: FormData) {
       throw new Error("Server configuration error. Contact support if this persists.");
     }
 
-    const { error: profileError } = await service.from("profiles").upsert({
-      id: data.user.id,
-      email,
-      full_name: sanitizeText(full_name, 120),
-      country,
-      role: "buyer",
-    });
-    if (profileError) throw actionError(profileError, "Account created but profile setup failed");
+    await ensureUserProfile(service, data.user, { email, full_name, country });
 
     await ensureUserTrustProfile(data.user.id, Boolean(data.user.email_confirmed_at));
   }
@@ -136,7 +135,7 @@ export async function resetPassword(email: string) {
 
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset`,
+    redirectTo: `${getAppUrl()}/auth/reset`,
   });
   if (error) throw actionError(error, "Unable to send reset email");
   return data;

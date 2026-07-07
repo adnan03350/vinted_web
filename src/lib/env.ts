@@ -28,7 +28,15 @@ const RECOMMENDED: string[] = [
 ];
 
 export function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!raw) return "http://localhost:3000";
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return new URL(withProtocol).origin;
+  } catch {
+    return "http://localhost:3000";
+  }
 }
 
 export function hasSupabase() {
