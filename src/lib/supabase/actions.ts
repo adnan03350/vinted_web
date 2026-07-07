@@ -26,6 +26,36 @@ function actionError(error: unknown, fallback = "Something went wrong") {
   return new Error(fallback);
 }
 
+type AuthUserLike = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+};
+
+async function ensureUserProfile(
+  service: NonNullable<ReturnType<typeof createServiceRoleClient>>,
+  user: AuthUserLike,
+  overrides?: { full_name?: string; country?: string; email?: string }
+) {
+  const { data: existing } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle();
+  if (existing) return;
+
+  const email = overrides?.email ?? user.email ?? `${user.id}@users.local`;
+  const fullName =
+    overrides?.full_name ??
+    String(user.user_metadata?.full_name ?? email.split("@")[0] ?? "User");
+  const country = overrides?.country ?? String(user.user_metadata?.country ?? "Pakistan");
+
+  const { error } = await service.from("profiles").upsert({
+    id: user.id,
+    email,
+    full_name: sanitizeText(fullName, 120),
+    country,
+    role: "buyer",
+  });
+  if (error) throw actionError(error, "Unable to set up your profile");
+}
+
 export async function signUpWithEmail(formData: FormData) {
   const parsed = signUpSchema.safeParse({
     email: formData.get("email"),
@@ -81,6 +111,14 @@ export async function signInWithEmail(formData: FormData) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) throw actionError(error, "Unable to sign in");
+
+  if (data.user) {
+    const service = createServiceRoleClient();
+    if (service) {
+      await ensureUserProfile(service, data.user, { email: parsed.data.email });
+    }
+  }
+
   revalidatePath("/");
   return data;
 }
@@ -134,6 +172,8 @@ export async function createProduct(formData: FormData) {
 
   const { title, description, price, currency, category, condition, country, brand, is_negotiable } =
     parsed.data;
+
+  await ensureUserProfile(service, user, { country });
 
   const productId = uuid();
   const { data: productData, error: productError } = await service.from("products").insert({
