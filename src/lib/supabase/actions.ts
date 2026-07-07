@@ -14,7 +14,6 @@ import {
 import { createNotification } from "@/lib/services/notification-service";
 import { getOrCreateConversation } from "@/lib/services/chat-service";
 import { createServerSupabaseClient, createServiceRoleClient, getServerUser } from "@/lib/supabase/server";
-import { captureException } from "@/lib/monitoring/logger";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuid } from "uuid";
@@ -111,6 +110,11 @@ export async function createProduct(formData: FormData) {
   const user = userData.user;
   if (!user) throw new Error("You must be signed in to list a product.");
 
+  const service = createServiceRoleClient();
+  if (!service) {
+    throw new Error("Server configuration error. Contact support if this persists.");
+  }
+
   const images = formData.getAll("images") as File[];
   const uploadValidation = validateImageBatch(images);
   if (!uploadValidation.ok) throw new Error(uploadValidation.error);
@@ -130,10 +134,9 @@ export async function createProduct(formData: FormData) {
 
   const { title, description, price, currency, category, condition, country, brand, is_negotiable } =
     parsed.data;
-  const aiAnalysis = formData.get("ai_analysis") as string | null;
 
   const productId = uuid();
-  const { data: productData, error: productError } = await supabase.from("products").insert({
+  const { data: productData, error: productError } = await service.from("products").insert({
     id: productId,
     title: sanitizeText(title, 200),
     description: sanitizeText(description, 5000),
@@ -148,42 +151,7 @@ export async function createProduct(formData: FormData) {
     status: "available",
     featured: false,
   }).select().single();
-  if (productError) throw productError;
-
-  if (aiAnalysis) {
-    try {
-      const parsedAnalysis = JSON.parse(aiAnalysis);
-      await supabase.from("listing_ai_analysis").insert({
-        product_id: productData.id,
-        ai_analysis: parsedAnalysis,
-        ai_confidence: parsedAnalysis?.confidence ?? null,
-        price_estimation: parsedAnalysis?.priceEstimates ?? null,
-        quality_score: parsedAnalysis?.qualityScore?.overall ?? null,
-        risk_score: parsedAnalysis?.riskScore ?? null,
-        generated_metadata: {
-          title: parsedAnalysis?.title,
-          description: parsedAnalysis?.description,
-          highlights: parsedAnalysis?.highlights,
-          suggestedSpecifications: parsedAnalysis?.suggestedSpecifications,
-          suggestedTags: parsedAnalysis?.suggestedTags,
-        },
-        image_analysis: {
-          productType: parsedAnalysis?.productType,
-          primaryColor: parsedAnalysis?.primaryColor,
-          secondaryColors: parsedAnalysis?.secondaryColors,
-          material: parsedAnalysis?.material,
-          style: parsedAnalysis?.style,
-        },
-        detection_history: {
-          duplicateSignals: parsedAnalysis?.duplicateSignals ?? [],
-          riskFlags: parsedAnalysis?.riskFlags ?? [],
-        },
-        listing_improvements: parsedAnalysis?.recommendations ?? [],
-      });
-    } catch (error) {
-      captureException(error, { scope: "createProduct.aiAnalysis" });
-    }
-  }
+  if (productError) throw actionError(productError, "Unable to create listing");
 
   await flagSuspiciousListing({
     userId: user.id,
@@ -196,7 +164,7 @@ export async function createProduct(formData: FormData) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
   if (!cloudName || !uploadPreset) {
-    throw new Error("Image upload is not configured.");
+    throw new Error("Image upload is not configured. Add Cloudinary keys in your environment settings.");
   }
 
   for (const [index, image] of images.entries()) {
@@ -215,11 +183,12 @@ export async function createProduct(formData: FormData) {
     });
     const uploadData = await response.json();
     if (!response.ok) throw new Error(uploadData.error?.message || "Cloudinary upload failed");
-    await supabase.from("product_images").insert({
+    const { error: imageError } = await service.from("product_images").insert({
       product_id: productData.id,
       image_url: uploadData.secure_url,
       is_primary: index === 0,
     });
+    if (imageError) throw actionError(imageError, "Listing saved but image upload failed");
   }
 
   revalidatePath("/browse");

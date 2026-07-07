@@ -10,8 +10,8 @@ export default function SellPage() {
         <BackButton />
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Sell an item</p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Publish a fresh listing to your region</h1>
-          <p className="mt-3 text-sm text-slate-500">Upload multiple images, provide details, and go live instantly.</p>
+          <h1 className="mt-2 text-3xl font-semibold text-slate-900">Post your ad</h1>
+          <p className="mt-3 text-sm text-slate-500">Upload photos, enter details, and publish your listing.</p>
         </div>
         <ProductUploadForm />
       </main>
