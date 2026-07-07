@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 import { ChatClient } from "@/components/chat-client";
 import { requireAuthenticatedUser } from "@/lib/auth/guards";
 import {
@@ -37,7 +38,8 @@ export default async function ChatPage({
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
-      <div id="main-content">
+      <div id="main-content" className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <BackButton />
         <ChatClient
           conversations={conversations}
           initialMessages={messages}

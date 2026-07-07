@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 import { getUserOrders } from "@/lib/ai/escrow";
 import { getServerUser } from "@/lib/supabase/server";
 import { getWallet, getWalletTransactions } from "@/lib/services/wallet-service";
@@ -14,6 +15,7 @@ export default async function OrdersPage() {
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <BackButton />
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Orders</p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">Track buyer requests and confirmed purchases</h1>

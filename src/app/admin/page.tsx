@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 import { getAdminModerationOverview } from "@/lib/ai/moderation";
 import { getEscrowOverview } from "@/lib/ai/escrow";
 import { getAdminPlatformStats } from "@/lib/admin/analytics-service";
@@ -48,6 +49,7 @@ export default async function AdminPage() {
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <BackButton />
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Admin dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">Production marketplace overview</h1>

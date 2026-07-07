@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +29,7 @@ type FormValues = {
 };
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
@@ -42,6 +44,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (mode === "login") {
         await signInWithEmail(formData);
         toast.success("Signed in successfully");
+        router.refresh();
+        router.push("/");
       } else {
         await signUpWithEmail(formData);
         toast.success("Check your email to verify your account");

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 import { ProductCard } from "@/components/product-card";
 import { createServerSupabaseClient, getServerUser } from "@/lib/supabase/server";
 import { getFollowersCount } from "@/lib/services/social-service";
@@ -26,10 +27,13 @@ export default async function ProfilePage() {
     return (
       <div className="min-h-screen bg-slate-50">
         <SiteHeader />
-        <main className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-semibold text-slate-900">Sign in to view your profile</h1>
-          <p className="mt-2 text-sm text-slate-500">Manage your listings, followers, and seller reputation.</p>
-          <Link href="/auth/login" className="mt-6 inline-flex rounded-full bg-slate-900 px-5 py-3 font-semibold text-white">Sign in</Link>
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+          <BackButton />
+          <div className="py-8 text-center">
+            <h1 className="text-2xl font-semibold text-slate-900">Sign in to view your profile</h1>
+            <p className="mt-2 text-sm text-slate-500">Manage your listings, followers, and seller reputation.</p>
+            <Link href="/auth/login" className="mt-6 inline-flex rounded-full bg-slate-900 px-5 py-3 font-semibold text-white">Sign in</Link>
+          </div>
         </main>
       </div>
     );
@@ -48,6 +52,7 @@ export default async function ProfilePage() {
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <BackButton />
         <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">

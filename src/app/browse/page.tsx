@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
@@ -32,7 +33,8 @@ export default async function BrowsePage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
-      <div id="main-content">
+      <div id="main-content" className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <BackButton />
         <BrowseClient products={products} />
       </div>
     </div>

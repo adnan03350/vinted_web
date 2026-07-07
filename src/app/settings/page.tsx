@@ -1,10 +1,12 @@
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 
 export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <BackButton />
         <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Settings</p>

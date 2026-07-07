@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, ShieldCheck, Star } from "lucide-react";
+import { MessageCircle, ShieldCheck, Star } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
+import { BackButton } from "@/components/back-button";
 import { ProductSocial } from "@/components/product-social";
 import { ProductReviews } from "@/components/product-reviews";
 import { JsonLd } from "@/components/json-ld";
@@ -103,10 +104,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       />
       <SiteHeader />
       <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link href="/browse" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to browse
-        </Link>
+        <BackButton href="/browse" label="Back to browse" />
 
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
