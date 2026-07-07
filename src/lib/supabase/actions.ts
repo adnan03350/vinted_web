@@ -19,6 +19,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuid } from "uuid";
 
+function actionError(error: unknown, fallback = "Something went wrong") {
+  if (error instanceof Error) return error;
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return new Error(error.message);
+  }
+  return new Error(fallback);
+}
+
 export async function signUpWithEmail(formData: FormData) {
   const parsed = signUpSchema.safeParse({
     email: formData.get("email"),
@@ -30,24 +38,38 @@ export async function signUpWithEmail(formData: FormData) {
 
   const supabase = await createServerSupabaseClient();
   const { email, password, full_name, country } = parsed.data;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error;
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name, country },
+      emailRedirectTo: `${appUrl}/auth/login`,
+    },
+  });
+  if (error) throw actionError(error, "Unable to create account");
 
   if (data.user) {
-    const { error: profileError } = await supabase.from("profiles").upsert({
+    const service = createServiceRoleClient();
+    if (!service) {
+      throw new Error("Server configuration error. Contact support if this persists.");
+    }
+
+    const { error: profileError } = await service.from("profiles").upsert({
       id: data.user.id,
       email,
       full_name: sanitizeText(full_name, 120),
       country,
       role: "buyer",
     });
-    if (profileError) throw profileError;
-    await ensureUserTrustProfile(data.user.id, Boolean(email));
+    if (profileError) throw actionError(profileError, "Account created but profile setup failed");
+
+    await ensureUserTrustProfile(data.user.id, Boolean(data.user.email_confirmed_at));
   }
 
   revalidatePath("/");
-  return data;
+  return { ok: true as const };
 }
 
 export async function signInWithEmail(formData: FormData) {
@@ -59,7 +81,7 @@ export async function signInWithEmail(formData: FormData) {
 
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) throw error;
+  if (error) throw actionError(error, "Unable to sign in");
   revalidatePath("/");
   return data;
 }
@@ -79,7 +101,7 @@ export async function resetPassword(email: string) {
   const { data, error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset`,
   });
-  if (error) throw error;
+  if (error) throw actionError(error, "Unable to send reset email");
   return data;
 }
 
