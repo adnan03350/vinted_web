@@ -19,7 +19,7 @@ export const signInSchema = z.object({
 
 export const productSchema = z.object({
   title: z.string().min(3).max(200),
-  description: z.string().min(10).max(5000),
+  description: z.string().min(5).max(5000),
   price: z.number().positive().max(10_000_000),
   currency: z.enum(currencies as [Currency, ...Currency[]]),
   category: z.enum(categories as [Category, ...Category[]]),
