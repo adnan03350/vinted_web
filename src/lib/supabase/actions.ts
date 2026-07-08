@@ -141,98 +141,137 @@ export async function resetPassword(email: string) {
   return data;
 }
 
-export async function createProduct(formData: FormData) {
-  const supabase = await createServerSupabaseClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
-  if (!user) throw new Error("You must be signed in to list a product.");
+function getImageFiles(formData: FormData) {
+  return formData
+    .getAll("images")
+    .filter((item): item is File => item instanceof File && item.size > 0);
+}
 
-  const service = createServiceRoleClient();
-  if (!service) {
-    throw new Error("Server configuration error. Contact support if this persists.");
-  }
-
-  const images = formData.getAll("images") as File[];
-  const uploadValidation = validateImageBatch(images);
-  if (!uploadValidation.ok) throw new Error(uploadValidation.error);
-
-  const parsed = productSchema.safeParse({
-    title: stripControlChars(String(formData.get("title") ?? "")),
-    description: stripControlChars(String(formData.get("description") ?? "")),
-    price: Number(formData.get("price")),
-    currency: formData.get("currency"),
-    category: formData.get("category"),
-    condition: formData.get("condition"),
-    country: formData.get("country"),
-    brand: formData.get("brand") ? stripControlChars(String(formData.get("brand"))) : null,
-    is_negotiable: formData.get("is_negotiable") === "on",
-  });
-  if (!parsed.success) throw new Error("Invalid product details");
-
-  const { title, description, price, currency, category, condition, country, brand, is_negotiable } =
-    parsed.data;
-
-  await ensureUserProfile(service, user, { country });
-
-  const productId = uuid();
-  const { data: productData, error: productError } = await service.from("products").insert({
-    id: productId,
-    title: sanitizeText(title, 200),
-    description: sanitizeText(description, 5000),
-    price,
-    currency,
-    category,
-    condition,
-    country,
-    brand: brand ? sanitizeText(brand, 120) : null,
-    seller_id: user.id,
-    is_negotiable,
-    status: "available",
-    featured: false,
-  }).select().single();
-  if (productError) throw actionError(productError, "Unable to create listing");
-
-  await flagSuspiciousListing({
-    userId: user.id,
-    productId: productData.id,
-    title,
-    description,
-    price,
-  });
-
+async function uploadImageToCloudinary(image: File, folder: string) {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
   if (!cloudName || !uploadPreset) {
-    throw new Error("Image upload is not configured. Add Cloudinary keys in your environment settings.");
+    return { ok: false as const, error: "Image upload is not configured. Add Cloudinary keys in Hostinger environment variables." };
   }
 
-  for (const [index, image] of images.entries()) {
-    const arrayBuffer = await image.arrayBuffer();
-    const file = Buffer.from(arrayBuffer);
-    const publicId = `${user.id}/${productId}/${uuid()}`;
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: "POST",
-      body: (() => {
-        const form = new FormData();
-        form.append("file", new Blob([file]), image.name);
-        form.append("upload_preset", uploadPreset);
-        form.append("public_id", publicId);
-        return form;
-      })(),
-    });
-    const uploadData = await response.json();
-    if (!response.ok) throw new Error(uploadData.error?.message || "Cloudinary upload failed");
-    const { error: imageError } = await service.from("product_images").insert({
-      product_id: productData.id,
-      image_url: uploadData.secure_url,
-      is_primary: index === 0,
-    });
-    if (imageError) throw actionError(imageError, "Listing saved but image upload failed");
+  const arrayBuffer = await image.arrayBuffer();
+  const body = new FormData();
+  body.append("file", new Blob([Buffer.from(arrayBuffer)]), image.name || "photo.jpg");
+  body.append("upload_preset", uploadPreset);
+  body.append("folder", folder);
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body,
+  });
+
+  let uploadData: { secure_url?: string; error?: { message?: string } } = {};
+  try {
+    uploadData = await response.json();
+  } catch {
+    return { ok: false as const, error: "Cloudinary returned an invalid response." };
   }
 
-  revalidatePath("/browse");
-  revalidatePath("/profile");
-  return productData;
+  if (!response.ok || !uploadData.secure_url) {
+    return {
+      ok: false as const,
+      error: uploadData.error?.message || "Cloudinary upload failed. Check your cloud name and upload preset.",
+    };
+  }
+
+  return { ok: true as const, url: uploadData.secure_url };
+}
+
+export type CreateProductResult = { ok: true } | { ok: false; error: string };
+
+export async function createProduct(formData: FormData): Promise<CreateProductResult> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+    if (!user) return { ok: false, error: "You must be signed in to list a product." };
+
+    const service = createServiceRoleClient();
+    if (!service) {
+      return { ok: false, error: "Server configuration error. Contact support if this persists." };
+    }
+
+    const images = getImageFiles(formData);
+    const uploadValidation = validateImageBatch(images);
+    if (!uploadValidation.ok) return { ok: false, error: uploadValidation.error };
+
+    const parsed = productSchema.safeParse({
+      title: stripControlChars(String(formData.get("title") ?? "")),
+      description: stripControlChars(String(formData.get("description") ?? "")),
+      price: Number(formData.get("price")),
+      currency: formData.get("currency"),
+      category: formData.get("category"),
+      condition: formData.get("condition"),
+      country: formData.get("country"),
+      brand: formData.get("brand") ? stripControlChars(String(formData.get("brand"))) : null,
+      is_negotiable: formData.get("is_negotiable") === "on",
+    });
+    if (!parsed.success) return { ok: false, error: "Invalid product details." };
+
+    const { title, description, price, currency, category, condition, country, brand, is_negotiable } =
+      parsed.data;
+
+    await ensureUserProfile(service, user, { country });
+
+    const productId = uuid();
+    const uploadFolder = `products/${user.id}/${productId}`;
+    const uploadedUrls: string[] = [];
+
+    for (const image of images) {
+      const uploadResult = await uploadImageToCloudinary(image, uploadFolder);
+      if (!uploadResult.ok) return uploadResult;
+      uploadedUrls.push(uploadResult.url);
+    }
+
+    const { data: productData, error: productError } = await service.from("products").insert({
+      id: productId,
+      title: sanitizeText(title, 200),
+      description: sanitizeText(description, 5000),
+      price,
+      currency,
+      category,
+      condition,
+      country,
+      brand: brand ? sanitizeText(brand, 120) : null,
+      seller_id: user.id,
+      is_negotiable,
+      status: "available",
+      featured: false,
+    }).select().single();
+    if (productError || !productData) {
+      return { ok: false, error: actionError(productError, "Unable to create listing").message };
+    }
+
+    await flagSuspiciousListing({
+      userId: user.id,
+      productId: productData.id,
+      title,
+      description,
+      price,
+    });
+
+    for (const [index, imageUrl] of uploadedUrls.entries()) {
+      const { error: imageError } = await service.from("product_images").insert({
+        product_id: productData.id,
+        image_url: imageUrl,
+        is_primary: index === 0,
+      });
+      if (imageError) {
+        return { ok: false, error: actionError(imageError, "Listing saved but image upload failed").message };
+      }
+    }
+
+    revalidatePath("/browse");
+    revalidatePath("/profile");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: actionError(error, "Unable to publish listing").message };
+  }
 }
 
 export type SendMessageResult =

@@ -172,7 +172,11 @@ export function ProductUploadForm() {
       }
       files.forEach((file) => formData.append("images", file));
 
-      await createProduct(formData);
+      const result = await createProduct(formData);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       toast.success("Listing published successfully");
       setFiles([]);
       setFormValues({
