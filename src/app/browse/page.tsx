@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { SiteHeader } from "@/components/site-header";
+import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/back-button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -21,9 +21,9 @@ async function getBrowseProducts() {
   const { data } = await supabase
     .from("products")
     .select("*, product_images(*), profiles!seller_id(full_name, avatar_url, country)")
-    .eq("status", "available")
+    .in("status", ["available", "Available"])
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(120);
   return data ?? [];
 }
 
@@ -32,11 +32,12 @@ export default async function BrowsePage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <SiteHeader />
-      <div id="main-content" className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
-        <BackButton />
-        <BrowseClient products={products} />
-      </div>
+      <AppShell>
+        <div id="main-content" className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          <BackButton />
+          <BrowseClient products={products} />
+        </div>
+      </AppShell>
     </div>
   );
 }

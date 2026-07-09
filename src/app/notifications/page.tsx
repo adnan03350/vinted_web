@@ -1,4 +1,4 @@
-import { SiteHeader } from "@/components/site-header";
+import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/back-button";
 import { NotificationsClient } from "@/components/notifications-client";
 import { getServerUser } from "@/lib/supabase/server";
@@ -10,8 +10,8 @@ export default async function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <SiteHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+      <AppShell>
+        <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <BackButton />
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Notifications</p>
@@ -22,7 +22,8 @@ export default async function NotificationsPage() {
         ) : (
           <p className="rounded-[1.5rem] border border-slate-200 bg-white p-5 text-sm text-slate-500">Sign in to see your notifications.</p>
         )}
-      </main>
+        </main>
+      </AppShell>
     </div>
   );
 }

@@ -34,7 +34,9 @@ export function ProductCard({ product }: { product: ProductRecord }) {
           <span className="font-semibold text-slate-900">{product.price} {product.currency}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500">by {sellerName}</span>
+          <Link href={`/users/${product.seller_id}`} className="text-slate-500 hover:text-slate-900">
+            by {sellerName}
+          </Link>
         </div>
       </div>
     </Link>

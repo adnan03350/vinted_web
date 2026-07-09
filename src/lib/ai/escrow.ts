@@ -371,6 +371,29 @@ export async function getEscrowOverview() {
 export async function getUserOrders(userId: string) {
   const supabase = await getEscrowClient();
   if (!supabase) return [];
-  const { data } = await supabase.from("orders").select("*, products(*)").or(`buyer_id.eq.${userId},seller_id.eq.${userId}`).order("created_at", { ascending: false });
+  const { data } = await supabase
+    .from("orders")
+    .select("*, products(*, product_images(*))")
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
   return data ?? [];
+}
+
+export async function getOrderById(orderId: string, userId: string) {
+  const supabase = await getEscrowClient();
+  if (!supabase) return null;
+  const { data: order } = await supabase
+    .from("orders")
+    .select("*, products(*, product_images(*))")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return null;
+  if (order.buyer_id !== userId && order.seller_id !== userId) return null;
+
+  const [{ data: buyer }, { data: seller }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name, email").eq("id", order.buyer_id).maybeSingle(),
+    supabase.from("profiles").select("id, full_name, email").eq("id", order.seller_id).maybeSingle(),
+  ]);
+
+  return { ...order, buyer, seller };
 }

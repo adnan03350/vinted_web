@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { MessageCircle, ShieldCheck, Star } from "lucide-react";
-import { SiteHeader } from "@/components/site-header";
+import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/back-button";
 import { ProductSocial } from "@/components/product-social";
 import { ProductReviews } from "@/components/product-reviews";
+import { ProductBuyBar } from "@/components/product-buy-bar";
 import { JsonLd } from "@/components/json-ld";
 import { createServerSupabaseClient, getServerUser } from "@/lib/supabase/server";
 import { trackProductView } from "@/lib/ai/user-activity";
@@ -102,9 +103,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           sellerName,
         })}
       />
-      <SiteHeader />
-      <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <BackButton href="/browse" label="Back to browse" />
+      <AppShell>
+        <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8">
+          <BackButton href="/browse" label="Back to browse" />
 
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
@@ -147,17 +148,17 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 {product.is_negotiable ? <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">Negotiable</span> : null}
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
-                <form action={messageSellerFromProduct}>
-                  <input type="hidden" name="sellerId" value={sellerId} />
-                  <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-                    <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                    Message seller
-                  </button>
-                </form>
                 <form action={requestProductOrder}>
                   <input type="hidden" name="productId" value={id} />
-                  <button type="submit" className="rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-                    Request order
+                  <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
+                    Buy now — {product.price} {product.currency}
+                  </button>
+                </form>
+                <form action={messageSellerFromProduct}>
+                  <input type="hidden" name="sellerId" value={sellerId} />
+                  <button type="submit" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
+                    <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                    Message seller
                   </button>
                 </form>
               </div>
@@ -173,13 +174,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-4">
+              <Link href={`/users/${sellerId}`} className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white" aria-hidden="true">{sellerInitials || "S"}</div>
                 <div>
                   <p className="font-semibold text-slate-900">{sellerName}</p>
-                  <p className="text-sm text-slate-500">{product.country} • {formatDate(product.created_at)}</p>
+                  <p className="text-sm text-slate-500">{product.country} • View shop →</p>
                 </div>
-              </div>
+              </Link>
               <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
                 <Star className="h-4 w-4 text-orange-500" aria-hidden="true" />
                 <span>Member since {formatDate(product.profiles?.created_at)}</span>
@@ -196,7 +197,15 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <div className="mt-8">
           <ProductReviews productId={id} reviews={reviews} summary={ratingSummary} />
         </div>
-      </main>
+        </main>
+        <ProductBuyBar
+          productId={id}
+          price={Number(product.price)}
+          currency={product.currency}
+          sellerId={sellerId}
+          isOwner={user?.id === sellerId}
+        />
+      </AppShell>
     </div>
   );
 }

@@ -17,9 +17,10 @@ type Props = {
   initialFollowing: boolean;
   initialSaved: boolean;
   followersCount: number;
+  compact?: boolean;
 };
 
-export function ProductSocial({ sellerId, productId, initialFollowing, initialSaved, followersCount }: Props) {
+export function ProductSocial({ sellerId, productId, initialFollowing, initialSaved, followersCount, compact = false }: Props) {
   const [following, setFollowing] = useState(initialFollowing);
   const [saved, setSaved] = useState(initialSaved);
   const [followers, setFollowers] = useState(followersCount);
@@ -84,23 +85,27 @@ export function ProductSocial({ sellerId, productId, initialFollowing, initialSa
         {following ? "Following" : "Follow"}
         <span className="text-xs font-normal opacity-70">{followers}</span>
       </button>
-      <button
-        type="button"
-        onClick={toggleSave}
-        disabled={busy}
-        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-60 ${saved ? "border-orange-200 bg-orange-50 text-orange-700" : "border-slate-200 bg-white text-slate-700"}`}
-      >
-        <Bookmark className={`h-4 w-4 ${saved ? "fill-orange-500 text-orange-500" : ""}`} />
-        {saved ? "Saved" : "Save"}
-      </button>
-      <button
-        type="button"
-        onClick={share}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
-      >
-        <Share2 className="h-4 w-4" />
-        Share
-      </button>
+      {!compact ? (
+        <>
+          <button
+            type="button"
+            onClick={toggleSave}
+            disabled={busy}
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-60 ${saved ? "border-orange-200 bg-orange-50 text-orange-700" : "border-slate-200 bg-white text-slate-700"}`}
+          >
+            <Bookmark className={`h-4 w-4 ${saved ? "fill-orange-500 text-orange-500" : ""}`} />
+            {saved ? "Saved" : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={share}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,33 +1,40 @@
-import { SiteHeader } from "@/components/site-header";
+import Link from "next/link";
+import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/back-button";
+import { SettingsForm } from "@/components/settings-form";
+import { requireAuthenticatedUser } from "@/lib/auth/guards";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await requireAuthenticatedUser();
+  const supabase = await createServerSupabaseClient();
+  const { data: profile } = await supabase.from("profiles").select("full_name, country, email").eq("id", user.id).maybeSingle();
+
   return (
     <div className="min-h-screen bg-slate-50">
-      <SiteHeader />
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <BackButton />
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Settings</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Manage your preferences</h1>
+      <AppShell>
+        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+          <BackButton href="/profile" label="Back to profile" />
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="mb-8">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">Settings</p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-900">Account & preferences</h1>
+            </div>
+            <SettingsForm
+              initial={{
+                full_name: profile?.full_name || "",
+                country: profile?.country || "Pakistan",
+                email: profile?.email || user.email || "",
+              }}
+            />
+            <div className="mt-8 border-t border-slate-100 pt-6">
+              <Link href="/orders" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
+                View orders & wallet →
+              </Link>
+            </div>
           </div>
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h2 className="font-semibold text-slate-900">Notifications</h2>
-              <p className="mt-2 text-sm text-slate-500">Choose how you receive new messages, order updates, and price drop alerts.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h2 className="font-semibold text-slate-900">Payment preferences</h2>
-              <p className="mt-2 text-sm text-slate-500">Cash on delivery, bank transfer, and wallet options can be connected here.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h2 className="font-semibold text-slate-900">Verification</h2>
-              <p className="mt-2 text-sm text-slate-500">Identity checks and seller badges are available for trusted transactions.</p>
-            </div>
-          </div>
-        </div>
-      </main>
+        </main>
+      </AppShell>
     </div>
   );
 }
