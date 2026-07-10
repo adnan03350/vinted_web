@@ -38,25 +38,55 @@ async function ensureUserProfile(
   user: AuthUserLike,
   overrides?: { full_name?: string; country?: string; email?: string }
 ) {
-  const { data: existing } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle();
-  if (existing) return;
+  if (!user.id) return;
 
-  const email = overrides?.email ?? user.email ?? `${user.id}@users.local`;
+  const { data: existingById } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle();
+  if (existingById) {
+    if (overrides?.country) {
+      await service.from("profiles").update({ country: overrides.country }).eq("id", user.id);
+    }
+    return;
+  }
+
+  const email = (overrides?.email ?? user.email ?? `${user.id}@users.local`).trim();
   const fullName =
     overrides?.full_name ??
     String(user.user_metadata?.full_name ?? email.split("@")[0] ?? "User");
   const country = overrides?.country ?? String(user.user_metadata?.country ?? "Pakistan");
 
-  const { error } = await service.from("profiles").upsert({
+  const payload = {
     id: user.id,
     email,
     full_name: sanitizeText(fullName, 120),
     country,
     role: "buyer",
-  });
+  };
+
+  // Another profile row may already use this email under a different id (stale signup row).
+  const { data: existingByEmail } = await service.from("profiles").select("id").eq("email", email).maybeSingle();
+  if (existingByEmail && existingByEmail.id !== user.id) {
+    await service
+      .from("profiles")
+      .update({ email: `legacy-${existingByEmail.id}@users.local` })
+      .eq("id", existingByEmail.id);
+  }
+
+  const { error } = await service.from("profiles").insert(payload);
   if (error) {
     if (error.code === "23505") {
-      throw new Error("This email is already registered. Try logging in.");
+      const { data: retry } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle();
+      if (retry) return;
+
+      const { error: fallbackError } = await service.from("profiles").insert({
+        ...payload,
+        email: `${user.id}@users.local`,
+      });
+      if (fallbackError) {
+        const { data: finalCheck } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle();
+        if (finalCheck) return;
+        throw actionError(fallbackError, "Unable to set up your profile");
+      }
+      return;
     }
     throw actionError(error, "Unable to set up your profile");
   }
