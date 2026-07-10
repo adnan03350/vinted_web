@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle, ShieldCheck, Star } from "lucide-react";
+import { ShieldCheck, Star } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/back-button";
 import { ProductSocial } from "@/components/product-social";
@@ -15,7 +15,8 @@ import { getFollowersCount, isFollowing, isProductSaved } from "@/lib/services/s
 import { getReviews, getRatingSummary } from "@/lib/services/review-service";
 import { buildProductMetadata } from "@/lib/seo/metadata";
 import { buildProductJsonLd } from "@/lib/seo/structured-data";
-import { messageSellerFromProduct, requestProductOrder } from "@/lib/supabase/actions";
+import { ProductPageActions } from "@/components/product-page-actions";
+import { userHasPurchasedProduct } from "@/lib/services/order-service";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const user = await getServerUser();
   const sellerId = product.seller_id as string;
+  const isOwner = user?.id === sellerId;
+  const purchaseStatus = await userHasPurchasedProduct(user?.id, id);
   const [followersCount, following, saved, reviews, ratingSummary] = await Promise.all([
     getFollowersCount(sellerId),
     isFollowing(user?.id, sellerId),
@@ -138,21 +141,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </div>
                 {product.is_negotiable ? <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">Negotiable</span> : null}
               </div>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <form action={requestProductOrder}>
-                  <input type="hidden" name="productId" value={id} />
-                  <button type="submit" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-                    Buy now — {product.price} {product.currency}
-                  </button>
-                </form>
-                <form action={messageSellerFromProduct}>
-                  <input type="hidden" name="sellerId" value={sellerId} />
-                  <button type="submit" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-                    <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                    Message seller
-                  </button>
-                </form>
-              </div>
+              <ProductPageActions
+                productId={id}
+                sellerId={sellerId}
+                price={Number(product.price)}
+                currency={product.currency}
+                isOwner={isOwner}
+              />
               <div className="mt-6 border-t border-slate-100 pt-6">
                 <ProductSocial
                   sellerId={sellerId}
@@ -160,6 +155,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   initialFollowing={following}
                   initialSaved={saved}
                   followersCount={followersCount}
+                  isOwner={isOwner}
                 />
               </div>
             </div>
@@ -186,7 +182,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="mt-8">
-          <ProductReviews productId={id} reviews={reviews} summary={ratingSummary} />
+          <ProductReviews
+            productId={id}
+            reviews={reviews}
+            summary={ratingSummary}
+            canReview={purchaseStatus.purchased && !purchaseStatus.alreadyReviewed}
+            isLoggedIn={Boolean(user)}
+            alreadyReviewed={purchaseStatus.alreadyReviewed}
+          />
         </div>
         </main>
         <ProductBuyBar
@@ -194,7 +197,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           price={Number(product.price)}
           currency={product.currency}
           sellerId={sellerId}
-          isOwner={user?.id === sellerId}
+          isOwner={isOwner}
         />
       </AppShell>
     </div>

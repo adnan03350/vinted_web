@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
-import { createOrder } from "@/lib/supabase/actions";
+import { buyProductAction, messageSellerAction } from "@/lib/supabase/commerce-actions";
 
 export function ProductBuyBar({
   productId,
@@ -19,18 +20,37 @@ export function ProductBuyBar({
   isOwner: boolean;
 }) {
   const router = useRouter();
+  const [busy, setBusy] = useState<"buy" | "message" | null>(null);
 
   const buyNow = async () => {
+    setBusy("buy");
     try {
-      await createOrder(productId);
-      toast.success("Order placed — payment held in escrow");
-      router.push("/orders");
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message || "Unable to place order. Sign in and try again.");
-      if (error?.message?.includes("Authentication")) {
-        router.push("/auth/login");
+      const result = await buyProductAction(productId);
+      if (!result.ok) {
+        toast.error(result.error);
+        if (result.error.toLowerCase().includes("sign in")) router.push("/auth/login");
+        return;
       }
+      toast.success("Order placed — payment held in escrow");
+      router.push(result.redirectUrl || "/orders");
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const messageSeller = async () => {
+    setBusy("message");
+    try {
+      const result = await messageSellerAction(sellerId);
+      if (!result.ok) {
+        toast.error(result.error);
+        if (result.error.toLowerCase().includes("sign in")) router.push("/auth/login");
+        return;
+      }
+      router.push(result.redirectUrl || "/chat");
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -53,8 +73,9 @@ export function ProductBuyBar({
         </div>
         <button
           type="button"
-          onClick={() => router.push(`/chat?seller=${sellerId}`)}
-          className="rounded-full border border-slate-200 p-3 text-slate-700"
+          onClick={messageSeller}
+          disabled={!!busy}
+          className="rounded-full border border-slate-200 p-3 text-slate-700 disabled:opacity-60"
           aria-label="Message seller"
         >
           <MessageCircle className="h-5 w-5" />
@@ -62,10 +83,11 @@ export function ProductBuyBar({
         <button
           type="button"
           onClick={buyNow}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+          disabled={!!busy}
+          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           <ShoppingBag className="h-4 w-4" />
-          Buy
+          {busy === "buy" ? "..." : "Buy"}
         </button>
       </div>
     </div>

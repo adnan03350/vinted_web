@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { UserPlus, UserCheck, Bookmark, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -18,26 +19,44 @@ type Props = {
   initialSaved: boolean;
   followersCount: number;
   compact?: boolean;
+  isOwner?: boolean;
 };
 
-export function ProductSocial({ sellerId, productId, initialFollowing, initialSaved, followersCount, compact = false }: Props) {
+export function ProductSocial({
+  sellerId,
+  productId,
+  initialFollowing,
+  initialSaved,
+  followersCount,
+  compact = false,
+  isOwner = false,
+}: Props) {
+  const router = useRouter();
   const [following, setFollowing] = useState(initialFollowing);
   const [saved, setSaved] = useState(initialSaved);
   const [followers, setFollowers] = useState(followersCount);
   const [busy, setBusy] = useState(false);
 
   const toggleFollow = async () => {
+    if (isOwner) {
+      toast.error("You cannot follow yourself.");
+      return;
+    }
     setBusy(true);
     const next = !following;
     setFollowing(next);
     setFollowers((count) => Math.max(0, count + (next ? 1 : -1)));
     try {
-      if (next) await followSellerAction(sellerId);
-      else await unfollowSellerAction(sellerId);
-    } catch (error: any) {
-      setFollowing(!next);
-      setFollowers((count) => Math.max(0, count + (next ? -1 : 1)));
-      toast.error(error?.message || "Please sign in to follow sellers");
+      const result = next ? await followSellerAction(sellerId) : await unfollowSellerAction(sellerId);
+      if (!result.ok) {
+        setFollowing(!next);
+        setFollowers((count) => Math.max(0, count + (next ? -1 : 1)));
+        toast.error(result.error);
+        if (result.error.toLowerCase().includes("sign in")) router.push("/auth/login");
+        return;
+      }
+      toast.success(next ? "Following seller" : "Unfollowed seller");
+      router.refresh();
     } finally {
       setBusy(false);
     }
@@ -48,12 +67,15 @@ export function ProductSocial({ sellerId, productId, initialFollowing, initialSa
     const next = !saved;
     setSaved(next);
     try {
-      if (next) await saveProductAction(productId);
-      else await unsaveProductAction(productId);
+      const result = next ? await saveProductAction(productId) : await unsaveProductAction(productId);
+      if (!result.ok) {
+        setSaved(!next);
+        toast.error(result.error);
+        if (result.error.toLowerCase().includes("sign in")) router.push("/auth/login");
+        return;
+      }
       toast.success(next ? "Saved to your list" : "Removed from saved");
-    } catch (error: any) {
-      setSaved(!next);
-      toast.error(error?.message || "Please sign in to save products");
+      router.refresh();
     } finally {
       setBusy(false);
     }
@@ -69,9 +91,11 @@ export function ProductSocial({ sellerId, productId, initialFollowing, initialSa
         toast.success("Share link copied");
       }
     } catch {
-      // user dismissed the share sheet; nothing to do
+      // user dismissed share sheet
     }
   };
+
+  if (isOwner) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
