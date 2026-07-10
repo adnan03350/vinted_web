@@ -263,6 +263,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     }
 
     revalidatePath("/browse");
+    revalidatePath("/");
     revalidatePath("/profile");
     return { ok: true };
   } catch (error) {

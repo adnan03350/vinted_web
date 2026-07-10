@@ -1,14 +1,14 @@
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { AppShell } from "@/components/app-shell";
 import { BackButton } from "@/components/back-button";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getAvailableProducts } from "@/lib/services/catalog-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
-const BrowseClient = dynamic(() => import("@/components/browse-client").then((mod) => mod.BrowseClient), {
+const BrowseClient = nextDynamic(() => import("@/components/browse-client").then((mod) => mod.BrowseClient), {
   loading: () => <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-slate-500">Loading marketplace...</div>,
 });
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata = buildPageMetadata(
   "Browse listings",
@@ -16,19 +16,8 @@ export const metadata = buildPageMetadata(
   "/browse"
 );
 
-async function getBrowseProducts() {
-  const supabase = await createServerSupabaseClient();
-  const { data } = await supabase
-    .from("products")
-    .select("*, product_images(*), profiles!seller_id(full_name, avatar_url, country)")
-    .in("status", ["available", "Available"])
-    .order("created_at", { ascending: false })
-    .limit(120);
-  return data ?? [];
-}
-
 export default async function BrowsePage() {
-  const products = await getBrowseProducts();
+  const products = await getAvailableProducts(120);
 
   return (
     <div className="min-h-screen bg-slate-50">

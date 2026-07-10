@@ -36,7 +36,7 @@ alter table products enable row level security;
 
 drop policy if exists products_select on products;
 create policy products_select on products
-  for select using (status = 'available' or auth.uid() = seller_id);
+  for select using (lower(status) = 'available' or auth.uid() = seller_id);
 
 drop policy if exists products_insert_owner on products;
 create policy products_insert_owner on products

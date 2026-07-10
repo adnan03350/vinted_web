@@ -33,7 +33,7 @@ export function BrowseClient({ products }: { products: any[] }) {
   const [category, setCategory] = useState("All");
   const [country, setCountry] = useState("All");
   const [condition, setCondition] = useState("All");
-  const [price, setPrice] = useState(10000);
+  const [price, setPrice] = useState(100000);
   const [active, setActive] = useState(false);
 
   const [imageSearch, setImageSearch] = useState<ImageSearchState | null>(null);
@@ -59,7 +59,7 @@ export function BrowseClient({ products }: { products: any[] }) {
       const matchesCategory = category === "All" || product.category === category;
       const matchesCountry = country === "All" || product.country === country;
       const matchesCondition = condition === "All" || product.condition === condition;
-      const matchesPrice = product.price <= price;
+      const matchesPrice = price >= 100000 || Number(product.price) <= price;
       return matchesCategory && matchesCountry && matchesCondition && matchesPrice;
     });
   }, [category, condition, country, price, products, searchResult, imageSearch]);
@@ -296,8 +296,8 @@ export function BrowseClient({ products }: { products: any[] }) {
             </div>
             <div>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Maximum price</h2>
-              <input type="range" min="1000" max="10000" step="500" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full accent-orange-500" />
-              <p className="mt-2 text-sm text-slate-500">Up to {price} {price === 10000 ? "+" : ""}</p>
+              <input type="range" min="500" max="100000" step="500" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full accent-orange-500" />
+              <p className="mt-2 text-sm text-slate-500">{price >= 100000 ? "Any price" : `Up to ${price.toLocaleString()}`}</p>
             </div>
           </div>
         </aside>

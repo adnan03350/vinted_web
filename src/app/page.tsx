@@ -1,13 +1,13 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { Suspense } from "react";
 import { ArrowRight, ShieldCheck, Sparkles, Store, MessageCircleHeart } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProductCard } from "@/components/product-card";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getAvailableProducts } from "@/lib/services/catalog-service";
 import type { ProductRecord } from "@/types";
 
-const RecommendationSections = dynamic(
+const RecommendationSections = nextDynamic(
   () => import("@/components/recommendation-sections").then((mod) => mod.RecommendationSections),
   {
     loading: () => (
@@ -20,7 +20,7 @@ const RecommendationSections = dynamic(
   }
 );
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const highlights = [
   { title: "Escrow protection", description: "Pay safely — funds release after you confirm delivery.", icon: ShieldCheck },
@@ -29,14 +29,8 @@ const highlights = [
 ];
 
 async function getFeedProducts(): Promise<ProductRecord[]> {
-  const supabase = await createServerSupabaseClient();
-  const { data } = await supabase
-    .from("products")
-    .select("*, product_images(*), profiles!seller_id(full_name)")
-    .in("status", ["available", "Available"])
-    .order("created_at", { ascending: false })
-    .limit(24);
-  return (data ?? []) as ProductRecord[];
+  const data = await getAvailableProducts(24);
+  return data as ProductRecord[];
 }
 
 export default async function HomePage() {
