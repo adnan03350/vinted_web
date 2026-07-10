@@ -25,11 +25,16 @@ export async function getProductById(id: string) {
   const service = createServiceRoleClient();
   const client = service ?? (await createServerSupabaseClient());
 
-  const { data } = await client
+  const { data, error } = await client
     .from("products")
     .select("*, product_images(*), profiles!seller_id(full_name, country, avatar_url, created_at)")
     .eq("id", id)
     .maybeSingle();
+
+  if (error) {
+    console.error("getProductById:", error.message);
+    return null;
+  }
 
   return data;
 }

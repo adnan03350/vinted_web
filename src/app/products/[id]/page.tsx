@@ -8,7 +8,8 @@ import { ProductSocial } from "@/components/product-social";
 import { ProductReviews } from "@/components/product-reviews";
 import { ProductBuyBar } from "@/components/product-buy-bar";
 import { JsonLd } from "@/components/json-ld";
-import { createServerSupabaseClient, getServerUser } from "@/lib/supabase/server";
+import { getServerUser } from "@/lib/supabase/server";
+import { getProductById } from "@/lib/services/catalog-service";
 import { trackProductView } from "@/lib/ai/user-activity";
 import { getFollowersCount, isFollowing, isProductSaved } from "@/lib/services/social-service";
 import { getReviews, getRatingSummary } from "@/lib/services/review-service";
@@ -17,17 +18,7 @@ import { buildProductJsonLd } from "@/lib/seo/structured-data";
 import { messageSellerFromProduct, requestProductOrder } from "@/lib/supabase/actions";
 import { notFound } from "next/navigation";
 
-export const revalidate = 120;
-
-async function getProduct(id: string) {
-  const supabase = await createServerSupabaseClient();
-  const { data } = await supabase
-    .from("products")
-    .select("*, product_images(*), profiles!seller_id(full_name, country, avatar_url, created_at)")
-    .eq("id", id)
-    .maybeSingle();
-  return data;
-}
+export const dynamic = "force-dynamic";
 
 function formatDate(value: string | null) {
   if (!value) return "Recently";
@@ -37,7 +28,7 @@ function formatDate(value: string | null) {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const product = await getProduct(id);
+  const product = await getProductById(id);
   if (!product) return { title: "Product not found" };
 
   const images = product.product_images ?? [];
@@ -57,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const product = await getProduct(id);
+  const product = await getProductById(id);
 
   if (!product) {
     notFound();
