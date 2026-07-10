@@ -15,6 +15,7 @@ import { createNotification } from "@/lib/services/notification-service";
 import { getOrCreateConversation } from "@/lib/services/chat-service";
 import { createServerSupabaseClient, createServiceRoleClient, getServerUser } from "@/lib/supabase/server";
 import { getAppUrl } from "@/lib/env";
+import { uploadListingImage } from "@/lib/storage/product-images";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { v4 as uuid } from "uuid";
@@ -177,41 +178,6 @@ function getImageFiles(formData: FormData) {
     .filter((item): item is File => item instanceof File && item.size > 0);
 }
 
-async function uploadImageToCloudinary(image: File, folder: string) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-  if (!cloudName || !uploadPreset) {
-    return { ok: false as const, error: "Image upload is not configured. Add Cloudinary keys in Hostinger environment variables." };
-  }
-
-  const arrayBuffer = await image.arrayBuffer();
-  const body = new FormData();
-  body.append("file", new Blob([Buffer.from(arrayBuffer)]), image.name || "photo.jpg");
-  body.append("upload_preset", uploadPreset);
-  body.append("folder", folder);
-
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body,
-  });
-
-  let uploadData: { secure_url?: string; error?: { message?: string } } = {};
-  try {
-    uploadData = await response.json();
-  } catch {
-    return { ok: false as const, error: "Cloudinary returned an invalid response." };
-  }
-
-  if (!response.ok || !uploadData.secure_url) {
-    return {
-      ok: false as const,
-      error: uploadData.error?.message || "Cloudinary upload failed. Check your cloud name and upload preset.",
-    };
-  }
-
-  return { ok: true as const, url: uploadData.secure_url };
-}
-
 export type CreateProductResult = { ok: true } | { ok: false; error: string };
 
 export async function createProduct(formData: FormData): Promise<CreateProductResult> {
@@ -253,7 +219,7 @@ export async function createProduct(formData: FormData): Promise<CreateProductRe
     const uploadedUrls: string[] = [];
 
     for (const image of images) {
-      const uploadResult = await uploadImageToCloudinary(image, uploadFolder);
+      const uploadResult = await uploadListingImage(service, image, uploadFolder);
       if (!uploadResult.ok) return uploadResult;
       uploadedUrls.push(uploadResult.url);
     }
