@@ -85,91 +85,120 @@ async function ensureUserProfile(
       if (fallbackError) {
         const { data: finalCheck } = await service.from("profiles").select("id").eq("id", user.id).maybeSingle();
         if (finalCheck) return;
-        throw actionError(fallbackError, "Unable to set up your profile");
       }
       return;
     }
-    throw actionError(error, "Unable to set up your profile");
+    return;
   }
 }
 
-export async function signUpWithEmail(formData: FormData) {
-  const parsed = signUpSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    full_name: stripControlChars(String(formData.get("full_name") ?? "")),
-    country: formData.get("country"),
-  });
-  if (!parsed.success) throw new Error("Invalid signup details");
+export type AuthActionResult = { ok: true } | { ok: false; error: string };
 
-  const supabase = await createServerSupabaseClient();
-  const { email, password, full_name, country } = parsed.data;
-  const appUrl = getAppUrl();
+function authFail(error: unknown, fallback: string): AuthActionResult {
+  if (error instanceof Error) return { ok: false, error: error.message };
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return { ok: false, error: error.message };
+  }
+  return { ok: false, error: fallback };
+}
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name, country },
-      emailRedirectTo: `${appUrl}/auth/login`,
-    },
-  });
-  if (error) throw actionError(error, "Unable to create account");
+export async function signUpWithEmail(formData: FormData): Promise<AuthActionResult> {
+  try {
+    const parsed = signUpSchema.safeParse({
+      email: formData.get("email"),
+      password: formData.get("password"),
+      full_name: stripControlChars(String(formData.get("full_name") ?? "")),
+      country: formData.get("country"),
+    });
+    if (!parsed.success) return { ok: false, error: "Invalid signup details." };
 
-  if (data.user) {
-    const service = createServiceRoleClient();
-    if (!service) {
-      throw new Error("Server configuration error. Contact support if this persists.");
+    const supabase = await createServerSupabaseClient();
+    const { email, password, full_name, country } = parsed.data;
+    const appUrl = getAppUrl();
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name, country },
+        emailRedirectTo: `${appUrl}/auth/login`,
+      },
+    });
+    if (error) return authFail(error, "Unable to create account.");
+
+    if (data.user) {
+      const service = createServiceRoleClient();
+      if (!service) {
+        return { ok: false, error: "Server configuration error. Contact support if this persists." };
+      }
+
+      await ensureUserProfile(service, data.user, { email, full_name, country });
+      try {
+        await ensureUserTrustProfile(data.user.id, Boolean(data.user.email_confirmed_at));
+      } catch {
+        // trust profile is optional during signup
+      }
     }
 
-    await ensureUserProfile(service, data.user, { email, full_name, country });
-
-    await ensureUserTrustProfile(data.user.id, Boolean(data.user.email_confirmed_at));
+    revalidatePath("/");
+    return { ok: true };
+  } catch (error) {
+    return authFail(error, "Unable to create account.");
   }
-
-  revalidatePath("/");
-  return { ok: true as const };
 }
 
-export async function signInWithEmail(formData: FormData) {
-  const parsed = signInSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
-  if (!parsed.success) throw new Error("Invalid login details");
+export async function signInWithEmail(formData: FormData): Promise<AuthActionResult> {
+  try {
+    const parsed = signInSchema.safeParse({
+      email: formData.get("email"),
+      password: formData.get("password"),
+    });
+    if (!parsed.success) return { ok: false, error: "Invalid login details." };
 
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) throw actionError(error, "Unable to sign in");
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+    if (error) return authFail(error, "Unable to sign in.");
 
-  if (data.user) {
-    const service = createServiceRoleClient();
-    if (service) {
-      await ensureUserProfile(service, data.user, { email: parsed.data.email });
+    if (data.user) {
+      const service = createServiceRoleClient();
+      if (service) {
+        await ensureUserProfile(service, data.user, { email: parsed.data.email });
+      }
     }
+
+    revalidatePath("/");
+    return { ok: true };
+  } catch (error) {
+    return authFail(error, "Unable to sign in.");
   }
-
-  revalidatePath("/");
-  return data;
 }
 
-export async function signOut() {
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-  revalidatePath("/");
+export async function signOut(): Promise<AuthActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.signOut();
+    if (error) return authFail(error, "Unable to sign out.");
+    revalidatePath("/");
+    return { ok: true };
+  } catch (error) {
+    return authFail(error, "Unable to sign out.");
+  }
 }
 
-export async function resetPassword(email: string) {
-  const parsed = signInSchema.shape.email.safeParse(email);
-  if (!parsed.success) throw new Error("Invalid email address");
+export async function resetPassword(email: string): Promise<AuthActionResult> {
+  try {
+    const parsed = signInSchema.shape.email.safeParse(email);
+    if (!parsed.success) return { ok: false, error: "Invalid email address." };
 
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${getAppUrl()}/auth/reset`,
-  });
-  if (error) throw actionError(error, "Unable to send reset email");
-  return data;
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
+      redirectTo: `${getAppUrl()}/auth/reset`,
+    });
+    if (error) return authFail(error, "Unable to send reset email.");
+    return { ok: true };
+  } catch (error) {
+    return authFail(error, "Unable to send reset email.");
+  }
 }
 
 function getImageFiles(formData: FormData) {

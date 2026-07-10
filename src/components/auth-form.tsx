@@ -36,22 +36,30 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     resolver: zodResolver(mode === "login" ? loginSchema : signupSchema) as never,
   });
 
-  const onSubmit = async (values: any) => {
+  const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
     try {
       const formData = new FormData();
       Object.entries(values).forEach(([key, value]) => formData.append(key, String(value)));
+
       if (mode === "login") {
-        await signInWithEmail(formData);
+        const result = await signInWithEmail(formData);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Signed in successfully");
-        router.refresh();
         router.push("/");
-      } else {
-        await signUpWithEmail(formData);
-        toast.success("Check your email to verify your account");
+        router.refresh();
+        return;
       }
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong");
+
+      const result = await signUpWithEmail(formData);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Check your email to verify your account");
     } finally {
       setIsLoading(false);
     }
@@ -60,12 +68,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const handleForgotPassword = async () => {
     const email = window.prompt("Enter your email to reset your password");
     if (!email) return;
-    try {
-      await resetPassword(email);
-      toast.success("Password reset email sent");
-    } catch (error: any) {
-      toast.error(error.message || "Unable to send reset email");
+
+    const result = await resetPassword(email);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
     }
+    toast.success("Password reset email sent");
   };
 
   return (
@@ -107,7 +116,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </select>
         </div>
       ) : null}
-      <button disabled={isLoading} className="w-full rounded-full bg-slate-900 px-4 py-3 font-semibold text-white">
+      <button disabled={isLoading} className="w-full rounded-full bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-60">
         {isLoading ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}
       </button>
       {mode === "login" ? <button type="button" onClick={handleForgotPassword} className="text-sm font-medium text-slate-600">Forgot password?</button> : null}
